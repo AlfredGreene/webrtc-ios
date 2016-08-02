@@ -7,9 +7,16 @@ WEBRTC_DIR=$BASE_DIR/webrtc
 DEPOT_TOOLS_DIR=$BASE_DIR/depot_tools
 GCLIENT_CONFIG=$WEBRTC_DIR/.gclient
 WEBRTC_URL="https://chromium.googlesource.com/external/webrtc"
+WEBRTC_BUILD_SCRIPT=$WEBRTC_DIR/src/webrtc/build/ios/build_ios_libs.sh
+BUILD_DIR=$BASE_DIR/build
+OUT_DIR=$BASE_DIR
+WEBRTC_FRAMEWORK_NAME=WebRTC
+WEBRTC_FRAMEWORK=WebRTC.framework
 CONFIG=./config.sh
+CARTHAGE=carthage
 
 mkdir -p $WEBRTC_DIR
+mkdir -p $BUILD_DIR
 
 function usage {
   echo "WebRTC framework build script."
@@ -49,6 +56,27 @@ function setup {
   export PATH=$PATH:/$DEPOT_TOOLS
 }
 
+function build {
+  FLAVOR=$1
+  FLAVOR_BUILD_DIR=$BUILD_DIR/$FLAVOR
+  FLAVOR_OUT_DIR=$OUT_DIR/$FLAVOR
+
+  echo "Build in $FLAVOR configuration..."
+  mkdir -p $FLAVOR_OUT_DIR
+  sh "$WEBRTC_BUILD_SCRIPT" -o "$FLAVOR_BUILD_DIR" -b framework
+  cp -r "$FLAVOR_BUILD_DIR/$WEBRTC_FRAMEWORK" "$FLAVOR_OUT_DIR"
+
+  # archive with Carthage
+  echo "Archive the built framework with Carthage..."
+  if [ -f "$CARTHAGE"]; then
+    pushd $FLAVOR_BUILD_DIR
+    $CARTHAGE archive $WEBRTC_FRAMEWORK_NAME
+    popd
+  else
+    echo "Warning: Cathage is not found."
+  fi
+}
+
 if [ $COMMAND = "setup" ]; then
   if [ ! -d "$DEPOT_TOOLS_DIR" ]; then
     echo "Get depot_tools..."
@@ -59,7 +87,7 @@ if [ $COMMAND = "setup" ]; then
   fi
 
 elif [ $COMMAND = "fetch" ]; then
-  cd $WEBRTC_DIR
+  pushd $WEBRTC_DIR > /dev/null
   if [ ! -f "$GCLIENT_CONFIG" ]; then
     echo "Configure gclient..."
     gclient config --unmanaged "$WEBRTC_URL"
@@ -67,9 +95,12 @@ elif [ $COMMAND = "fetch" ]; then
   fi
   echo "Checkout the code..."
   gclient sync -r "$WEBRTC_REVISION" --with_branch_heads
+  popd
 
+elif [ $COMMAND = "debug" ]; then
+  build Debug
 else
-  echo "Unknown command '$COMMAND'. See '$0 -h' for help."
+  echo "Error: Unknown command '$COMMAND'. See '$0 -h' for help."
 fi
 
 echo "Done."
