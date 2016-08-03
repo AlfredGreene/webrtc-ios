@@ -9,14 +9,15 @@ GCLIENT_CONFIG=$WEBRTC_DIR/.gclient
 WEBRTC_URL="https://chromium.googlesource.com/external/webrtc"
 WEBRTC_BUILD_SCRIPT=$WEBRTC_DIR/src/webrtc/build/ios/build_ios_libs.sh
 BUILD_DIR=$BASE_DIR/build
-OUT_DIR=$BASE_DIR
+DIST_DIR=$BASE_DIR/dist
 WEBRTC_FRAMEWORK_NAME=WebRTC
 WEBRTC_FRAMEWORK=WebRTC.framework
 CONFIG=./config.sh
-CARTHAGE=carthage
+IDENTITY=
 
 mkdir -p $WEBRTC_DIR
 mkdir -p $BUILD_DIR
+mkdir -p $DIST_DIR
 
 function usage {
   echo "WebRTC framework build script."
@@ -29,7 +30,7 @@ function usage {
   echo "    fetch       get WebRTC source code"
   echo "    debug       build in debug configuration"
   echo "    release     build in release configuration"
-  echo "    all         build in debug and release configurations"
+  echo "    dist        build and archive all products"
   exit 0
 }
 
@@ -53,28 +54,37 @@ source $CONFIG
 COMMAND=$1
 
 function setup {
-  export PATH=$PATH:/$DEPOT_TOOLS
+  export PATH=$PATH:/$DEPOT_TOOLS_DIR
+  export GYP_CROSSCOMPILE=1
+
+  # replace code sign identity
+  sed -i -e "s/\'CODE_SIGN_IDENTITY\[sdk=iphoneos\*\]\': \'[^\']*\',/\'CODE_SIGN_IDENTITY[sdk=iphoneos*]\': \'$IDENTITY\',/" "$WEBRTC_DIR/src/build/common.gypi"
 }
 
 function build {
   FLAVOR=$1
   FLAVOR_BUILD_DIR=$BUILD_DIR/$FLAVOR
-  FLAVOR_OUT_DIR=$OUT_DIR/$FLAVOR
+  FLAVOR_DIST_DIR=$DIST_DIR/$FLAVOR
+
+  setup
 
   echo "Build in $FLAVOR configuration..."
-  mkdir -p $FLAVOR_OUT_DIR
-  sh "$WEBRTC_BUILD_SCRIPT" -o "$FLAVOR_BUILD_DIR" -b framework
-  cp -r "$FLAVOR_BUILD_DIR/$WEBRTC_FRAMEWORK" "$FLAVOR_OUT_DIR"
+  mkdir -p $FLAVOR_DIST_DIR
+  sh "$WEBRTC_BUILD_SCRIPT" -o "$FLAVOR_BUILD_DIR" -b framework -f "$FLAVOR"
+  cp -r "$FLAVOR_BUILD_DIR/$WEBRTC_FRAMEWORK" "$FLAVOR_DIST_DIR"
+}
 
-  # archive with Carthage
-  echo "Archive the built framework with Carthage..."
-  if [ -f "$CARTHAGE"]; then
-    pushd $FLAVOR_BUILD_DIR
-    $CARTHAGE archive $WEBRTC_FRAMEWORK_NAME
-    popd
-  else
-    echo "Warning: Cathage is not found."
-  fi
+function build_debug {
+  build Debug
+}
+
+function build_release {
+  build Release
+  pushd $BUILD_DIR/Release > /dev/null
+  zip -r "$WEBRTC_FRAMEWORK.zip" "$WEBRTC_FRAMEWORK" > /dev/null
+  popd > /dev/null
+  mkdir -p $DIST_DIR/Carthage
+  cp "$BUILD_DIR/Release/$WEBRTC_FRAMEWORK.zip" $DIST_DIR/Carthage
 }
 
 if [ $COMMAND = "setup" ]; then
@@ -95,12 +105,32 @@ elif [ $COMMAND = "fetch" ]; then
   fi
   echo "Checkout the code..."
   gclient sync -r "$WEBRTC_REVISION" --with_branch_heads
-  popd
+  popd > /dev/null
 
 elif [ $COMMAND = "debug" ]; then
-  build Debug
+  build_debug
+
+elif [ $COMMAND = "release" ]; then
+  build_release
+
+elif [ $COMMAND = "dist" ]; then
+  ARCHIVE_DIR=WebRTC-iOS
+
+  build_debug
+  build_release
+
+  pushd $BUILD_DIR > /dev/null
+  rm -rf $ARCHIVE_DIR
+  mkdir -p $ARCHIVE_DIR
+  mkdir $ARCHIVE_DIR/Debug
+  mkdir $ARCHIVE_DIR/Release
+  cp -r $DIST_DIR/Debug/$WEBRTC_FRAMEWORK $ARCHIVE_DIR/Debug
+  cp -r $DIST_DIR/Release/$WEBRTC_FRAMEWORK $ARCHIVE_DIR/Release
+  zip -r $ARCHIVE_DIR.zip $ARCHIVE_DIR > /dev/null
+  rm -rf $DIST_DIR/$ARCHIVE_DIR $DIST_DIR/$ARCHIVE_DIR.zip
+  mv $ARCHIVE_DIR $ARCHIVE_DIR.zip $DIST_DIR
+  popd > /dev/null
+
 else
   echo "Error: Unknown command '$COMMAND'. See '$0 -h' for help."
 fi
-
-echo "Done."
