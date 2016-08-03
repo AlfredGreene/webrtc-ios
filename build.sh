@@ -90,7 +90,7 @@ elif [ $COMMAND = "fetch" ]; then
   pushd $WEBRTC_DIR > /dev/null
   if [ ! -f "$GCLIENT_CONFIG" ]; then
     echo "Configure gclient..."
-    gclient config --unmanaged "$WEBRTC_URL"
+    gclient config --unmanaged  --name=src "$WEBRTC_URL"
     echo "target_os = ['ios', 'mac']" >> .gclient
   fi
   echo "Checkout the code..."
