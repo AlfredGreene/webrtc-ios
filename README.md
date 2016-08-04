@@ -1,4 +1,4 @@
-# WebRTC Build Script for iOS
+# WebRTC Build Scripts for iOS
 
 TODO
 
