@@ -59,6 +59,11 @@ function setup {
 
   # replace code sign identity
   sed -i -e "s/\'CODE_SIGN_IDENTITY\[sdk=iphoneos\*\]\': \'[^\']*\',/\'CODE_SIGN_IDENTITY[sdk=iphoneos*]\': \'$IDENTITY\',/" "$WEBRTC_DIR/src/build/common.gypi"
+
+  # ignore patches if already applied
+  set +e
+  patch -buN webrtc/src/webrtc/build/ios/build_ios_libs.sh < patch/build_ios_libs.sh.diff
+  set -e
 }
 
 function build {

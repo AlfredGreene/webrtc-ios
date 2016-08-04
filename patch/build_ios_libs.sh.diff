@@ -1,0 +1,40 @@
+--- webrtc/src/webrtc/build/ios/build_ios_libs.sh.orig	2016-08-03 15:48:28.000000000 +0900
++++ webrtc/src/webrtc/build/ios/build_ios_libs.sh	2016-08-03 21:25:43.000000000 +0900
+@@ -19,6 +19,7 @@
+ GYP_WEBRTC_SCRIPT=${WEBRTC_BASE_DIR}/webrtc/build/gyp_webrtc.py
+ MERGE_SCRIPT=${SCRIPT_DIR}/merge_ios_libs.py
+ LICENSE_SCRIPT=${SCRIPT_DIR}/generate_licenses.py
++PLISTBUDDY=/usr/libexec/PlistBuddy
+ 
+ function check_preconditions {
+   # Check for Darwin.
+@@ -148,13 +149,14 @@
+ POINT_VERSION="0"
+ 
+ # Parse arguments.
+-while getopts "hb:co:r:" opt; do
++while getopts "hb:co:r:f:" opt; do
+   case "${opt}" in
+     h) usage;;
+     b) BUILD_TYPE="${OPTARG}";;
+     c) PERFORM_CLEAN=1;;
+     o) OUTPUT_DIR="${OPTARG}";;
+     r) POINT_VERSION="${OPTARG}";;
++    f) FLAVOR="${OPTARG}";;
+     *)
+       usage
+       exit 1
+@@ -211,11 +213,11 @@
+ 
+   # Modify the version number.
+   INFOPLIST_PATH=${OUTPUT_DIR}/WebRTC.framework/Info.plist
+-  MAJOR_MINOR=$(plistbuddy -c "Print :CFBundleShortVersionString" \
++  MAJOR_MINOR=$(${PLISTBUDDY} -c "Print :CFBundleShortVersionString" \
+                 ${INFOPLIST_PATH})
+   VERSION_NUMBER="${MAJOR_MINOR}.${POINT_VERSION}"
+   echo "Substituting revision number: ${VERSION_NUMBER}"
+-  plistbuddy -c "Set :CFBundleVersion ${VERSION_NUMBER}" ${INFOPLIST_PATH}
++  ${PLISTBUDDY} -c "Set :CFBundleVersion ${VERSION_NUMBER}" ${INFOPLIST_PATH}
+   plutil -convert binary1 ${INFOPLIST_PATH}
+ 
+   # Copy pod file.
