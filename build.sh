@@ -63,6 +63,8 @@ function setup {
   # ignore patches if already applied
   set +e
   patch -buN webrtc/src/webrtc/build/ios/build_ios_libs.sh < patch/build_ios_libs.sh.diff
+  patch -buN webrtc/src/webrtc/system_wrappers/system_wrappers.gyp < patch/system_wrappers.gyp.diff
+  patch -buN webrtc/src/webrtc/sdk/sdk.gyp < patch/sdk.gyp.diff
   set -e
 }
 
